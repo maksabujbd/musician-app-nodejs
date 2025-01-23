@@ -96,8 +96,41 @@
 #  files: imagedefinitions.json
 
 
+#version: 0.2
+#run-as: root
+#
+#phases:
+#  pre_build:
+#    commands:
+#      - echo Logging in to Amazon ECR...
+#      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+#      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+#      - echo "Checking for existing Docker image locally..."
+#      - docker pull $REPOSITORY_URI || echo "No cache image found, proceeding without cache."
+#
+#  build:
+#    commands:
+#      - echo Debugging build environment...
+##      - echo "Current directory: $(pwd)"
+#      - echo "Files in the directory:"
+#      - ls -la
+#      - echo "Attempting to build Docker image..."
+##      - docker build --cache-from=$REPOSITORY_URI -t $IMAGE_REPO_NAME:$IMAGE_TAG . || (echo "Docker build failed!" && exit 1)
+#      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+#
+#  post_build:
+#    commands:
+#      - echo Build completed on `date`
+#      - echo Pushing the Docker image...
+#      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
+#      - echo Writing image definitions file...
+#      - printf '[{"name":"%s","imageUri":"%s"}]' $CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+#
+#artifacts:
+#  files: imagedefinitions.json
+
+
 version: 0.2
-run-as: root
 
 phases:
   pre_build:
@@ -105,26 +138,27 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
-      - echo "Checking for existing Docker image locally..."
-      - docker pull $REPOSITORY_URI || echo "No cache image found, proceeding without cache."
-
+      - echo Checking if ECR image exists...
+      - aws ecr describe-images --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG --region $AWS_DEFAULT_REGION > /dev/null 2>&1
+      - if [[ $? -eq 0 ]]; then
+        echo ECR image found. Using ECR image.
+#        BASE_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG";
+        BASE_IMAGE="$REPOSITORY_URI:$IMAGE_TAG";
+        else
+        echo ECR image not found. Using Docker Hub image.
+        BASE_IMAGE="$DOCKER_HUB_IMAGE:$DOCKER_IMAGE_TAG";
+        fi
   build:
     commands:
-      - echo Debugging build environment...
-#      - echo "Current directory: $(pwd)"
-      - echo "Files in the directory:"
-      - ls -la
-      - echo "Attempting to build Docker image..."
-      - docker build --cache-from=$REPOSITORY_URI -t $IMAGE_REPO_NAME:$IMAGE_TAG . || (echo "Docker build failed!" && exit 1)
-
+      - echo Building the Docker image...
+      - echo "Base Image is $BASE_IMAGE"
+      - docker build --build-arg BASE_IMAGE=$BASE_IMAGE -t $IMAGE_REPO_NAME:$IMAGE_TAG .
+      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
   post_build:
     commands:
-      - echo Build completed on `date`
       - echo Pushing the Docker image...
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
-      - echo Writing image definitions file...
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
       - printf '[{"name":"%s","imageUri":"%s"}]' $CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
-
 artifacts:
-  files: imagedefinitions.json
-
+  files:
+    - imagedefinitions.json
