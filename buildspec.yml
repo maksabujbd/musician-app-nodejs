@@ -140,13 +140,13 @@ phases:
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
       - echo Checking if ECR image exists...
+      - BASE_IMAGE="$REPOSITORY_URI:$IMAGE_TAG";
       - aws ecr describe-images --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG --region $AWS_DEFAULT_REGION
-#      - BASE_IMAGE="$REPOSITORY_URI:$IMAGE_TAG";
       - if [ $? -eq 0 ]; then
-        echo "ECR image found. Using ECR image. $REPOSITORY_URI:$IMAGE_TAG"
+        echo "ECR image found. Using ECR image. $REPOSITORY_URI:$IMAGE_TAG";
         BASE_IMAGE="$REPOSITORY_URI:$IMAGE_TAG";
         else
-        echo "ECR image not found. Using Docker Hub image."
+        echo "ECR image not found. Using Docker Hub image.";
         BASE_IMAGE="$DOCKER_HUB_IMAGE:$DOCKER_IMAGE_TAG";
         fi
   build:
