@@ -131,6 +131,7 @@
 
 
 version: 0.2
+run-as: root
 
 phases:
   pre_build:
@@ -142,7 +143,6 @@ phases:
       - aws ecr describe-images --repository-name $IMAGE_REPO_NAME --image-ids imageTag=$IMAGE_TAG --region $AWS_DEFAULT_REGION > /dev/null 2>&1
       - if [[ $? -eq 0 ]]; then
         echo ECR image found. Using ECR image.
-#        BASE_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG";
         BASE_IMAGE="$REPOSITORY_URI:$IMAGE_TAG";
         else
         echo ECR image not found. Using Docker Hub image.
